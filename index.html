@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate 3X Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #0f172a; 
+            color: #f8fafc; 
+            overflow: hidden; 
+        }
+        .editor-font { font-family: 'Fira Code', monospace; }
+        
+        /* Custom Scrollbar for dark theme */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .pane { height: calc(100vh - 4rem); }
+        @media (max-width: 768px) {
+            .pane { height: calc(50vh - 2rem); }
+        }
+        
+        /* Iframe scrollbar reset */
+        iframe { color-scheme: light; }
+    </style>
+</head>
+<body class="flex flex-col h-screen w-screen bg-slate-900 text-slate-200">
+
+    <header class="h-16 flex items-center justify-between px-4 lg:px-6 bg-slate-800 border-b border-slate-700 shadow-sm z-10 shrink-0">
+        <div class="flex items-center gap-3">
+            <svg class="w-8 h-8 text-indigo-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+            </svg>
+            <h1 class="font-bold text-lg tracking-tight hidden sm:block">Ultimate <span class="text-indigo-400">3X</span> Editor</h1>
+            <span class="ml-2 text-xs px-2 py-1 bg-slate-700 rounded-full text-slate-400 flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-green-500"></span> Local
+            </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="btnOpenProjects" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-slate-700 hover:bg-slate-600 rounded-md transition-colors" title="Projelerim">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <span class="hidden md:inline">Projelerim</span>
+            </button>
+            <button id="btnOpenSave" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors shadow-sm" title="Projeyi Kaydet">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                <span class="hidden md:inline">Kaydet</span>
+            </button>
+            <div class="w-px h-6 bg-slate-600 mx-1"></div>
+            <button id="btnCopyCode" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors" title="Kodu Kopyala">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            </button>
+            <button id="btnDownloadCode" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors" title="İndir">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row w-full overflow-hidden">
+        
+        <!-- Editor Section -->
+        <section class="flex-1 border-b md:border-b-0 md:border-r border-slate-700 flex flex-col pane bg-slate-900">
+            <div class="bg-slate-800 text-xs text-slate-400 px-3 py-1 flex justify-between items-center shrink-0 border-b border-slate-700">
+                <span id="currentProjectTitle">index.html (Kaydedilmedi)</span>
+                <span>HTML/CSS/JS</span>
+            </div>
+            <textarea id="codeEditor" spellcheck="false" class="w-full flex-1 p-4 bg-transparent text-slate-300 editor-font text-sm leading-relaxed focus:outline-none resize-none overflow-auto whitespace-pre font-mono" placeholder="<!-- Kodunuzu buraya yazın... -->"></textarea>
+        </section>
+
+        <!-- Preview Section -->
+        <section class="flex-1 flex flex-col pane bg-white">
+            <div class="bg-slate-800 text-xs text-slate-400 px-3 py-1 flex justify-between items-center shrink-0 border-b border-slate-700">
+                <span>Canlı Önizleme</span>
+                <span class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Aktif
+                </span>
+            </div>
+            <iframe id="previewFrame" class="w-full flex-1 border-none bg-white" sandbox="allow-scripts allow-modals allow-popups"></iframe>
+        </section>
+
+    </main>
+
+    <!-- Save Modal -->
+    <div id="saveModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-800 rounded-xl shadow-2xl border border-slate-700 w-full max-w-sm overflow-hidden transform transition-all scale-95">
+            <div class="p-5">
+                <h3 class="text-lg font-semibold text-white mb-4">Projeyi Kaydet</h3>
+                <input type="text" id="projectNameInput" class="w-full bg-slate-900 border border-slate-600 rounded-md px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" placeholder="Örn: Harika Oyunum" />
+                <div class="mt-6 flex justify-end gap-3">
+                    <button id="btnCancelSave" class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors">İptal</button>
+                    <button id="btnPerformSave" class="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors">Tarayıcıya Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects Modal -->
+    <div id="projectsModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-800 rounded-xl shadow-2xl border border-slate-700 w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh] transform transition-all scale-95">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800">
+                <h3 class="text-lg font-semibold text-white">Projelerim (Yerel Depolama)</h3>
+                <button id="btnCloseProjects" class="text-slate-400 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-0 overflow-y-auto flex-1 bg-slate-900 min-h-[200px]" id="projectsList">
+                <!-- Projeler buraya eklenecek -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // LocalStorage Key
+            const STORAGE_KEY = 'ultimate_3x_projects';
+
+            // State Variables
+            let currentProjectId = null;
+            let projectsData = [];
+
+            // UI Elements
+            const editor = document.getElementById('codeEditor');
+            const previewFrame = document.getElementById('previewFrame');
+            const saveModal = document.getElementById('saveModal');
+            const projectsModal = document.getElementById('projectsModal');
+            const projectNameInput = document.getElementById('projectNameInput');
+            const projectsList = document.getElementById('projectsList');
+            const currentProjectTitle = document.getElementById('currentProjectTitle');
+
+            // Buttons
+            const btnOpenProjects = document.getElementById('btnOpenProjects');
+            const btnOpenSave = document.getElementById('btnOpenSave');
+            const btnCopyCode = document.getElementById('btnCopyCode');
+            const btnDownloadCode = document.getElementById('btnDownloadCode');
+            const btnCancelSave = document.getElementById('btnCancelSave');
+            const btnPerformSave = document.getElementById('btnPerformSave');
+            const btnCloseProjects = document.getElementById('btnCloseProjects');
+
+            // Default Template
+            const defaultCode = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merhaba Dünya</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            color: #333;
+        }
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #4F46E5;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+        }
+        button:hover { background: #4338CA; }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1 id="greeting">Ultimate 3X'e Hoş Geldiniz</h1>
+        <p>Sol taraftaki kodu düzenleyerek değişiklikleri anında burada görebilirsiniz.</p>
+        <button id="actionBtn">Bana Tıkla!</button>
+    </div>
+
+    <script>
+        document.getElementById('actionBtn').addEventListener('click', function() {
+            document.getElementById('greeting').innerText = 'Kod çalışıyor! 🎉';
+            document.getElementById('greeting').style.color = '#4F46E5';
+        });
+    <\/script>
+</body>
+</html>`;
+
+            function initApp() {
+                editor.value = defaultCode;
+                updatePreview();
+
+                // Handle Tab key in textarea for better coding experience
+                editor.addEventListener('keydown', function(e) {
+                    if (e.key === 'Tab') {
+                        e.preventDefault();
+                        const start = this.selectionStart;
+                        const end = this.selectionEnd;
+                        this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                        this.selectionStart = this.selectionEnd = start + 4;
+                        updatePreview();
+                    }
+                });
+
+                // Debounced live preview update
+                let timeout;
+                editor.addEventListener('input', () => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(updatePreview, 300);
+                });
+                
+                // Load existing projects from storage
+                loadProjectsFromStorage();
+            }
+
+            function updatePreview() {
+                const code = editor.value;
+                previewFrame.srcdoc = code;
+            }
+
+            function loadProjectsFromStorage() {
+                try {
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    if (stored) {
+                        projectsData = JSON.parse(stored);
+                        // Ensure it's an array
+                        if (!Array.isArray(projectsData)) projectsData = [];
+                        // Sort by updated time (newest first)
+                        projectsData.sort((a, b) => b.updatedAt - a.updatedAt);
+                    } else {
+                        projectsData = [];
+                    }
+                } catch (e) {
+                    console.error("Storage Error:", e);
+                    projectsData = [];
+                }
+            }
+
+            function saveProjectsToStorage() {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(projectsData));
+                } catch (e) {
+                    console.error("Storage Error:", e);
+                    showToast("Depolama alanı dolu veya hata oluştu.", "error");
+                }
+            }
+
+            function performSave() {
+                const title = projectNameInput.value.trim() || "İsimsiz Proje";
+                const code = editor.value;
+                
+                // Generate a simple unique ID if it's a new project
+                const docId = currentProjectId || 'proj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                const now = Date.now();
+
+                const existingIndex = projectsData.findIndex(p => p.id === docId);
+
+                if (existingIndex >= 0) {
+                    projectsData[existingIndex].title = title;
+                    projectsData[existingIndex].code = code;
+                    projectsData[existingIndex].updatedAt = now;
+                } else {
+                    projectsData.push({
+                        id: docId,
+                        title: title,
+                        code: code,
+                        createdAt: now,
+                        updatedAt: now
+                    });
+                }
+                
+                // Save and update UI
+                saveProjectsToStorage();
+                loadProjectsFromStorage(); // Re-sort
+
+                currentProjectId = docId;
+                currentProjectTitle.textContent = `${title}.html (Kaydedildi)`;
+                
+                showToast("Proje tarayıcıya kaydedildi!", "success");
+                closeModals();
+            }
+
+            function loadProject(id) {
+                const project = projectsData.find(p => p.id === id);
+                if (project) {
+                    editor.value = project.code;
+                    currentProjectId = project.id;
+                    currentProjectTitle.textContent = `${project.title}.html`;
+                    projectNameInput.value = project.title;
+                    updatePreview();
+                    closeModals();
+                    showToast(`"${project.title}" yüklendi`, "success");
+                }
+            }
+
+            function deleteProject(id) {
+                // Remove project from array
+                projectsData = projectsData.filter(p => p.id !== id);
+                saveProjectsToStorage();
+                
+                showToast("Proje silindi.", "success");
+                
+                // Reset UI if current project was deleted
+                if (currentProjectId === id) {
+                    currentProjectId = null;
+                    currentProjectTitle.textContent = "index.html (Kaydedilmedi)";
+                    projectNameInput.value = "";
+                }
+                
+                renderProjectsList(); // Refresh modal list
+            }
+
+            function renderProjectsList() {
+                loadProjectsFromStorage(); // Ensure fresh data
+                
+                if (projectsData.length === 0) {
+                    projectsList.innerHTML = `<div class="p-8 text-center text-slate-500">Henüz kaydedilmiş proje yok.</div>`;
+                    return;
+                }
+
+                let html = '<div class="divide-y divide-slate-800/50">';
+                projectsData.forEach(p => {
+                    const date = new Date(p.updatedAt).toLocaleString('tr-TR');
+                    html += `
+                        <div id="proj-row-${p.id}" data-id="${p.id}" class="project-row p-4 hover:bg-slate-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition-colors group">
+                            <div class="flex-1 cursor-pointer w-full">
+                                <h4 class="text-slate-200 font-medium truncate">${p.title}</h4>
+                                <p class="text-xs text-slate-500 mt-1">Son düzenleme: ${date}</p>
+                            </div>
+                            <div class="flex gap-2 w-full sm:w-auto">
+                                <button data-action="load" data-id="${p.id}" class="flex-1 sm:flex-none px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded text-sm transition-colors">Yükle</button>
+                                <button data-action="delete" data-id="${p.id}" class="flex-1 sm:flex-none px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded text-sm transition-colors">Sil</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                projectsList.innerHTML = html;
+            }
+
+            function openModal(modalElement) {
+                modalElement.classList.remove('hidden');
+                // Small delay to allow CSS display:block to apply before animating opacity
+                setTimeout(() => {
+                    modalElement.classList.remove('opacity-0');
+                    modalElement.querySelector('div').classList.remove('scale-95');
+                }, 10);
+            }
+
+            function closeModal(modalElement) {
+                modalElement.classList.add('opacity-0');
+                modalElement.querySelector('div').classList.add('scale-95');
+                setTimeout(() => {
+                    modalElement.classList.add('hidden');
+                }, 200); // Matches duration-200
+            }
+
+            function closeModals() {
+                closeModal(saveModal);
+                closeModal(projectsModal);
+            }
+
+            function copyCode() {
+                editor.select();
+                try {
+                    document.execCommand('copy');
+                    window.getSelection().removeAllRanges();
+                    showToast("Kod panoya kopyalandı!", "success");
+                } catch (err) {
+                    showToast("Kopyalama başarısız.", "error");
+                }
+            }
+
+            function downloadCode() {
+                const code = editor.value;
+                const blob = new Blob([code], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                let filename = currentProjectTitle.textContent.replace(' (Kaydedildi)', '').replace(' (Kaydedilmedi)', '');
+                if (!filename.endsWith('.html')) filename += '.html';
+                
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(`${filename} indirildi`, "success");
+            }
+
+            function showToast(message, type = "info") {
+                const toast = document.createElement('div');
+                
+                let bgClass = "bg-slate-800 border-slate-700 text-white";
+                if (type === "success") bgClass = "bg-green-900 border-green-700 text-green-100";
+                if (type === "error") bgClass = "bg-red-900 border-red-700 text-red-100";
+                if (type === "warning") bgClass = "bg-yellow-900 border-yellow-700 text-yellow-100";
+
+                toast.className = `px-4 py-3 rounded-lg border shadow-lg transform transition-all duration-300 translate-y-10 opacity-0 flex items-center gap-2 ${bgClass}`;
+                toast.innerHTML = `<span class="text-sm font-medium">${message}</span>`;
+                
+                const container = document.getElementById('toastContainer');
+                if (container) {
+                    container.appendChild(toast);
+
+                    // Animate in
+                    requestAnimationFrame(() => {
+                        toast.classList.remove('translate-y-10', 'opacity-0');
+                    });
+
+                    // Animate out and remove
+                    setTimeout(() => {
+                        toast.classList.add('translate-y-10', 'opacity-0');
+                        setTimeout(() => {
+                            if (container.contains(toast)) container.removeChild(toast);
+                        }, 300);
+                    }, 3000);
+                }
+            }
+
+            // Top Bar Buttons
+            btnOpenProjects.addEventListener('click', () => {
+                renderProjectsList();
+                openModal(projectsModal);
+            });
+            
+            btnOpenSave.addEventListener('click', () => {
+                openModal(saveModal);
+                setTimeout(() => projectNameInput.focus(), 100);
+            });
+            
+            btnCopyCode.addEventListener('click', copyCode);
+            btnDownloadCode.addEventListener('click', downloadCode);
+            
+            // Modal Buttons
+            btnCancelSave.addEventListener('click', closeModals);
+            btnPerformSave.addEventListener('click', performSave);
+            btnCloseProjects.addEventListener('click', closeModals);
+
+            // Project List Event Delegation (Handling dynamically created buttons)
+            projectsList.addEventListener('click', (e) => {
+                const target = e.target;
+                
+                // Check if button clicked
+                if (target.tagName.toLowerCase() === 'button' || target.closest('button')) {
+                    const btn = target.tagName.toLowerCase() === 'button' ? target : target.closest('button');
+                    const id = btn.getAttribute('data-id');
+                    const action = btn.getAttribute('data-action');
+                    
+                    if (action === 'load') loadProject(id);
+                    if (action === 'delete') deleteProject(id);
+                } else {
+                    // Check if row clicked (for loading)
+                    const row = target.closest('.project-row');
+                    if (row) {
+                        const id = row.getAttribute('data-id');
+                        loadProject(id);
+                    }
+                }
+            });
+
+            // Close modals when clicking outside
+            window.addEventListener('click', (e) => {
+                if (e.target === saveModal) closeModals();
+                if (e.target === projectsModal) closeModals();
+            });
+
+            // Allow Enter key to trigger save
+            projectNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    performSave();
+                }
+            });
+
+            // Boot up
+            initApp();
+        });
+    </script>
+</body>
+</html>
