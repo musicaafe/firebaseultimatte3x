@@ -77,9 +77,14 @@
         <section class="flex-1 flex flex-col pane bg-white">
             <div class="bg-slate-800 text-xs text-slate-400 px-3 py-1 flex justify-between items-center shrink-0 border-b border-slate-700">
                 <span>Canlı Önizleme</span>
-                <span class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Aktif
-                </span>
+                <div class="flex items-center gap-3">
+                    <button id="btnFullscreen" class="hover:text-white transition-colors" title="Tam Ekran Önizleme">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                    </button>
+                    <span class="flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Aktif
+                    </span>
+                </div>
             </div>
             <iframe id="previewFrame" class="w-full flex-1 border-none bg-white" sandbox="allow-scripts allow-modals allow-popups"></iframe>
         </section>
@@ -144,6 +149,7 @@
             const btnCancelSave = document.getElementById('btnCancelSave');
             const btnPerformSave = document.getElementById('btnPerformSave');
             const btnCloseProjects = document.getElementById('btnCloseProjects');
+            const btnFullscreen = document.getElementById('btnFullscreen');
 
             // Default Template
             const defaultCode = `<!DOCTYPE html>
@@ -405,6 +411,24 @@
                 showToast(`${filename} indirildi`, "success");
             }
 
+            function toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    if (previewFrame.requestFullscreen) {
+                        previewFrame.requestFullscreen().catch(err => {
+                            showToast("Tam ekran modu başlatılamadı.", "error");
+                        });
+                    } else if (previewFrame.webkitRequestFullscreen) { /* Safari */
+                        previewFrame.webkitRequestFullscreen();
+                    } else if (previewFrame.msRequestFullscreen) { /* IE11 */
+                        previewFrame.msRequestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+            }
+
             function showToast(message, type = "info") {
                 const toast = document.createElement('div');
                 
@@ -448,6 +472,7 @@
             
             btnCopyCode.addEventListener('click', copyCode);
             btnDownloadCode.addEventListener('click', downloadCode);
+            btnFullscreen.addEventListener('click', toggleFullscreen);
             
             // Modal Buttons
             btnCancelSave.addEventListener('click', closeModals);
