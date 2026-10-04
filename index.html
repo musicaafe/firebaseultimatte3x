@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate 3X Editor</title>
+    <title>Ultimate 3X Editor - Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Ace Editor CDN (Devasa kodları kasmadan çalıştırmak için) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ace.js"></script>
+    
     <style>
         body { 
             font-family: 'Inter', sans-serif; 
@@ -13,7 +16,6 @@
             color: #f8fafc; 
             overflow: hidden; 
         }
-        .editor-font { font-family: 'Fira Code', monospace; }
         
         /* Custom Scrollbar for dark theme */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -28,6 +30,10 @@
         
         /* Iframe scrollbar reset */
         iframe { color-scheme: light; }
+        
+        /* Ace Editor Customizations */
+        #codeEditor { font-family: 'Fira Code', monospace; font-size: 14px; }
+        .ace_scrollbar-v { overflow-y: overlay !important; }
     </style>
 </head>
 <body class="flex flex-col h-screen w-screen bg-slate-900 text-slate-200">
@@ -39,7 +45,7 @@
             </svg>
             <h1 class="font-bold text-lg tracking-tight hidden sm:block">Ultimate <span class="text-indigo-400">3X</span> Editor</h1>
             <span class="ml-2 text-xs px-2 py-1 bg-slate-700 rounded-full text-slate-400 flex items-center gap-1">
-                <span class="w-2 h-2 rounded-full bg-green-500"></span> Local
+                <span class="w-2 h-2 rounded-full bg-green-500"></span> Pro
             </span>
         </div>
 
@@ -65,12 +71,13 @@
     <main class="flex-1 flex flex-col md:flex-row w-full overflow-hidden">
         
         <!-- Editor Section -->
-        <section class="flex-1 border-b md:border-b-0 md:border-r border-slate-700 flex flex-col pane bg-slate-900">
+        <section class="flex-1 border-b md:border-b-0 md:border-r border-slate-700 flex flex-col pane bg-[#1e1e1e]">
             <div class="bg-slate-800 text-xs text-slate-400 px-3 py-1 flex justify-between items-center shrink-0 border-b border-slate-700">
                 <span id="currentProjectTitle">index.html (Kaydedilmedi)</span>
                 <span>HTML/CSS/JS</span>
             </div>
-            <textarea id="codeEditor" spellcheck="false" class="w-full flex-1 p-4 bg-transparent text-slate-300 editor-font text-sm leading-relaxed focus:outline-none resize-none overflow-auto whitespace-pre font-mono" placeholder="<!-- Kodunuzu buraya yazın... -->"></textarea>
+            <!-- Textarea yerine Ace Editor div'i kullanıyoruz -->
+            <div id="codeEditor" class="w-full flex-1"></div>
         </section>
 
         <!-- Preview Section -->
@@ -131,9 +138,9 @@
             // State Variables
             let currentProjectId = null;
             let projectsData = [];
+            let previewUrl = null; // Blob URL referansı için
 
             // UI Elements
-            const editor = document.getElementById('codeEditor');
             const previewFrame = document.getElementById('previewFrame');
             const saveModal = document.getElementById('saveModal');
             const projectsModal = document.getElementById('projectsModal');
@@ -150,6 +157,16 @@
             const btnPerformSave = document.getElementById('btnPerformSave');
             const btnCloseProjects = document.getElementById('btnCloseProjects');
             const btnFullscreen = document.getElementById('btnFullscreen');
+
+            // Ace Editor Init (Sınırsız boyut, 0 kasma)
+            const editor = ace.edit("codeEditor");
+            editor.setTheme("ace/theme/tomorrow_night_eighties");
+            editor.session.setMode("ace/mode/html");
+            editor.setOptions({
+                showPrintMargin: false,
+                wrap: true,
+                useWorker: false // Yazarken uyarı/hata işaretlerini kapatır, performansı artırır
+            });
 
             // Default Template
             const defaultCode = `<!DOCTYPE html>
@@ -209,35 +226,29 @@
 </html>`;
 
             function initApp() {
-                editor.value = defaultCode;
+                editor.setValue(defaultCode, -1); // -1 imleci başa alır
                 updatePreview();
 
-                // Handle Tab key in textarea for better coding experience
-                editor.addEventListener('keydown', function(e) {
-                    if (e.key === 'Tab') {
-                        e.preventDefault();
-                        const start = this.selectionStart;
-                        const end = this.selectionEnd;
-                        this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
-                        this.selectionStart = this.selectionEnd = start + 4;
-                        updatePreview();
-                    }
-                });
-
-                // Debounced live preview update
+                // Optimize edilmiş canlı önizleme tetikleyicisi
                 let timeout;
-                editor.addEventListener('input', () => {
+                editor.session.on('change', () => {
                     clearTimeout(timeout);
-                    timeout = setTimeout(updatePreview, 300);
+                    timeout = setTimeout(updatePreview, 600); // Kasmayı önlemek için 600ms bekleme
                 });
                 
-                // Load existing projects from storage
                 loadProjectsFromStorage();
             }
 
             function updatePreview() {
-                const code = editor.value;
-                previewFrame.srcdoc = code;
+                const code = editor.getValue();
+                
+                // srcdoc yerine Blob kullanarak bellek darboğazını (kasmayı) engelliyoruz
+                if (previewUrl) {
+                    URL.revokeObjectURL(previewUrl);
+                }
+                const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+                previewUrl = URL.createObjectURL(blob);
+                previewFrame.src = previewUrl;
             }
 
             function loadProjectsFromStorage() {
@@ -245,9 +256,7 @@
                     const stored = localStorage.getItem(STORAGE_KEY);
                     if (stored) {
                         projectsData = JSON.parse(stored);
-                        // Ensure it's an array
                         if (!Array.isArray(projectsData)) projectsData = [];
-                        // Sort by updated time (newest first)
                         projectsData.sort((a, b) => b.updatedAt - a.updatedAt);
                     } else {
                         projectsData = [];
@@ -261,21 +270,30 @@
             function saveProjectsToStorage() {
                 try {
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(projectsData));
+                    return true;
                 } catch (e) {
                     console.error("Storage Error:", e);
-                    showToast("Depolama alanı dolu veya hata oluştu.", "error");
+                    // LocalStorage ~5MB limitine takılırsa uyar
+                    if(e.name === 'QuotaExceededError') {
+                        showToast("Kayıt başarısız: Tarayıcı kayıt sınırı aşıldı (Büyük base64 görselleri olabilir).", "error");
+                    } else {
+                        showToast("Depolama alanı hatası oluştu.", "error");
+                    }
+                    return false;
                 }
             }
 
             function performSave() {
                 const title = projectNameInput.value.trim() || "İsimsiz Proje";
-                const code = editor.value;
+                const code = editor.getValue();
                 
-                // Generate a simple unique ID if it's a new project
                 const docId = currentProjectId || 'proj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                 const now = Date.now();
 
                 const existingIndex = projectsData.findIndex(p => p.id === docId);
+                
+                // Orijinal veriyi yedekle (Hata olursa geri almak için)
+                let tempProjectData = JSON.stringify(projectsData); 
 
                 if (existingIndex >= 0) {
                     projectsData[existingIndex].title = title;
@@ -291,21 +309,24 @@
                     });
                 }
                 
-                // Save and update UI
-                saveProjectsToStorage();
-                loadProjectsFromStorage(); // Re-sort
-
-                currentProjectId = docId;
-                currentProjectTitle.textContent = `${title}.html (Kaydedildi)`;
+                const success = saveProjectsToStorage();
                 
-                showToast("Proje tarayıcıya kaydedildi!", "success");
-                closeModals();
+                if (success) {
+                    loadProjectsFromStorage(); 
+                    currentProjectId = docId;
+                    currentProjectTitle.textContent = `${title}.html (Kaydedildi)`;
+                    showToast("Proje tarayıcıya kaydedildi!", "success");
+                    closeModals();
+                } else {
+                    // Hata durumunda (Kota aşımı vb.) array'i eski haline getir
+                    projectsData = JSON.parse(tempProjectData);
+                }
             }
 
             function loadProject(id) {
                 const project = projectsData.find(p => p.id === id);
                 if (project) {
-                    editor.value = project.code;
+                    editor.setValue(project.code, -1);
                     currentProjectId = project.id;
                     currentProjectTitle.textContent = `${project.title}.html`;
                     projectNameInput.value = project.title;
@@ -316,24 +337,22 @@
             }
 
             function deleteProject(id) {
-                // Remove project from array
                 projectsData = projectsData.filter(p => p.id !== id);
                 saveProjectsToStorage();
                 
                 showToast("Proje silindi.", "success");
                 
-                // Reset UI if current project was deleted
                 if (currentProjectId === id) {
                     currentProjectId = null;
                     currentProjectTitle.textContent = "index.html (Kaydedilmedi)";
                     projectNameInput.value = "";
                 }
                 
-                renderProjectsList(); // Refresh modal list
+                renderProjectsList();
             }
 
             function renderProjectsList() {
-                loadProjectsFromStorage(); // Ensure fresh data
+                loadProjectsFromStorage();
                 
                 if (projectsData.length === 0) {
                     projectsList.innerHTML = `<div class="p-8 text-center text-slate-500">Henüz kaydedilmiş proje yok.</div>`;
@@ -362,7 +381,6 @@
 
             function openModal(modalElement) {
                 modalElement.classList.remove('hidden');
-                // Small delay to allow CSS display:block to apply before animating opacity
                 setTimeout(() => {
                     modalElement.classList.remove('opacity-0');
                     modalElement.querySelector('div').classList.remove('scale-95');
@@ -374,7 +392,7 @@
                 modalElement.querySelector('div').classList.add('scale-95');
                 setTimeout(() => {
                     modalElement.classList.add('hidden');
-                }, 200); // Matches duration-200
+                }, 200);
             }
 
             function closeModals() {
@@ -383,18 +401,27 @@
             }
 
             function copyCode() {
-                editor.select();
-                try {
-                    document.execCommand('copy');
-                    window.getSelection().removeAllRanges();
+                const code = editor.getValue();
+                navigator.clipboard.writeText(code).then(() => {
                     showToast("Kod panoya kopyalandı!", "success");
-                } catch (err) {
-                    showToast("Kopyalama başarısız.", "error");
-                }
+                }).catch(err => {
+                    // Fallback
+                    const textArea = document.createElement("textarea");
+                    textArea.value = code;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        showToast("Kod panoya kopyalandı!", "success");
+                    } catch (err) {
+                        showToast("Kopyalama başarısız.", "error");
+                    }
+                    document.body.removeChild(textArea);
+                });
             }
 
             function downloadCode() {
-                const code = editor.value;
+                const code = editor.getValue();
                 const blob = new Blob([code], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -414,18 +441,12 @@
             function toggleFullscreen() {
                 if (!document.fullscreenElement) {
                     if (previewFrame.requestFullscreen) {
-                        previewFrame.requestFullscreen().catch(err => {
-                            showToast("Tam ekran modu başlatılamadı.", "error");
-                        });
-                    } else if (previewFrame.webkitRequestFullscreen) { /* Safari */
+                        previewFrame.requestFullscreen().catch(() => showToast("Tam ekran modu başlatılamadı.", "error"));
+                    } else if (previewFrame.webkitRequestFullscreen) {
                         previewFrame.webkitRequestFullscreen();
-                    } else if (previewFrame.msRequestFullscreen) { /* IE11 */
-                        previewFrame.msRequestFullscreen();
                     }
                 } else {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                    }
+                    if (document.exitFullscreen) document.exitFullscreen();
                 }
             }
 
@@ -435,7 +456,6 @@
                 let bgClass = "bg-slate-800 border-slate-700 text-white";
                 if (type === "success") bgClass = "bg-green-900 border-green-700 text-green-100";
                 if (type === "error") bgClass = "bg-red-900 border-red-700 text-red-100";
-                if (type === "warning") bgClass = "bg-yellow-900 border-yellow-700 text-yellow-100";
 
                 toast.className = `px-4 py-3 rounded-lg border shadow-lg transform transition-all duration-300 translate-y-10 opacity-0 flex items-center gap-2 ${bgClass}`;
                 toast.innerHTML = `<span class="text-sm font-medium">${message}</span>`;
@@ -443,13 +463,7 @@
                 const container = document.getElementById('toastContainer');
                 if (container) {
                     container.appendChild(toast);
-
-                    // Animate in
-                    requestAnimationFrame(() => {
-                        toast.classList.remove('translate-y-10', 'opacity-0');
-                    });
-
-                    // Animate out and remove
+                    requestAnimationFrame(() => toast.classList.remove('translate-y-10', 'opacity-0'));
                     setTimeout(() => {
                         toast.classList.add('translate-y-10', 'opacity-0');
                         setTimeout(() => {
@@ -479,11 +493,9 @@
             btnPerformSave.addEventListener('click', performSave);
             btnCloseProjects.addEventListener('click', closeModals);
 
-            // Project List Event Delegation (Handling dynamically created buttons)
+            // Project List Events
             projectsList.addEventListener('click', (e) => {
                 const target = e.target;
-                
-                // Check if button clicked
                 if (target.tagName.toLowerCase() === 'button' || target.closest('button')) {
                     const btn = target.tagName.toLowerCase() === 'button' ? target : target.closest('button');
                     const id = btn.getAttribute('data-id');
@@ -492,22 +504,15 @@
                     if (action === 'load') loadProject(id);
                     if (action === 'delete') deleteProject(id);
                 } else {
-                    // Check if row clicked (for loading)
                     const row = target.closest('.project-row');
-                    if (row) {
-                        const id = row.getAttribute('data-id');
-                        loadProject(id);
-                    }
+                    if (row) loadProject(row.getAttribute('data-id'));
                 }
             });
 
-            // Close modals when clicking outside
             window.addEventListener('click', (e) => {
-                if (e.target === saveModal) closeModals();
-                if (e.target === projectsModal) closeModals();
+                if (e.target === saveModal || e.target === projectsModal) closeModals();
             });
 
-            // Allow Enter key to trigger save
             projectNameInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -515,7 +520,6 @@
                 }
             });
 
-            // Boot up
             initApp();
         });
     </script>
