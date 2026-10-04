@@ -50,6 +50,13 @@
         </div>
 
         <div class="flex items-center gap-2">
+            <!-- YENİ EKLENEN DOSYA YÜKLEME BUTONU -->
+            <button id="btnUploadFile" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-slate-700 hover:bg-slate-600 rounded-md transition-colors" title="Bilgisayardan Dosya Yükle">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                <span class="hidden md:inline">Dosya Yükle</span>
+            </button>
+            <input type="file" id="fileInput" class="hidden" accept=".html,.htm,.txt,.css,.js">
+            
             <button id="btnOpenProjects" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-slate-700 hover:bg-slate-600 rounded-md transition-colors" title="Projelerim">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                 <span class="hidden md:inline">Projelerim</span>
@@ -147,6 +154,10 @@
             const projectNameInput = document.getElementById('projectNameInput');
             const projectsList = document.getElementById('projectsList');
             const currentProjectTitle = document.getElementById('currentProjectTitle');
+            
+            // Yeni Eklenen Dosya Elementleri
+            const btnUploadFile = document.getElementById('btnUploadFile');
+            const fileInput = document.getElementById('fileInput');
 
             // Buttons
             const btnOpenProjects = document.getElementById('btnOpenProjects');
@@ -158,14 +169,14 @@
             const btnCloseProjects = document.getElementById('btnCloseProjects');
             const btnFullscreen = document.getElementById('btnFullscreen');
 
-            // Ace Editor Init (Sınırsız boyut, 0 kasma)
+            // Ace Editor Init
             const editor = ace.edit("codeEditor");
             editor.setTheme("ace/theme/tomorrow_night_eighties");
             editor.session.setMode("ace/mode/html");
             editor.setOptions({
                 showPrintMargin: false,
                 wrap: true,
-                useWorker: false // Yazarken uyarı/hata işaretlerini kapatır, performansı artırır
+                useWorker: false 
             });
 
             // Default Template
@@ -226,14 +237,13 @@
 </html>`;
 
             function initApp() {
-                editor.setValue(defaultCode, -1); // -1 imleci başa alır
+                editor.setValue(defaultCode, -1);
                 updatePreview();
 
-                // Optimize edilmiş canlı önizleme tetikleyicisi
                 let timeout;
                 editor.session.on('change', () => {
                     clearTimeout(timeout);
-                    timeout = setTimeout(updatePreview, 600); // Kasmayı önlemek için 600ms bekleme
+                    timeout = setTimeout(updatePreview, 600);
                 });
                 
                 loadProjectsFromStorage();
@@ -241,8 +251,6 @@
 
             function updatePreview() {
                 const code = editor.getValue();
-                
-                // srcdoc yerine Blob kullanarak bellek darboğazını (kasmayı) engelliyoruz
                 if (previewUrl) {
                     URL.revokeObjectURL(previewUrl);
                 }
@@ -273,9 +281,8 @@
                     return true;
                 } catch (e) {
                     console.error("Storage Error:", e);
-                    // LocalStorage ~5MB limitine takılırsa uyar
                     if(e.name === 'QuotaExceededError') {
-                        showToast("Kayıt başarısız: Tarayıcı kayıt sınırı aşıldı (Büyük base64 görselleri olabilir).", "error");
+                        showToast("Kayıt başarısız: Tarayıcı kayıt sınırı aşıldı.", "error");
                     } else {
                         showToast("Depolama alanı hatası oluştu.", "error");
                     }
@@ -292,7 +299,6 @@
 
                 const existingIndex = projectsData.findIndex(p => p.id === docId);
                 
-                // Orijinal veriyi yedekle (Hata olursa geri almak için)
                 let tempProjectData = JSON.stringify(projectsData); 
 
                 if (existingIndex >= 0) {
@@ -318,7 +324,6 @@
                     showToast("Proje tarayıcıya kaydedildi!", "success");
                     closeModals();
                 } else {
-                    // Hata durumunda (Kota aşımı vb.) array'i eski haline getir
                     projectsData = JSON.parse(tempProjectData);
                 }
             }
@@ -405,7 +410,6 @@
                 navigator.clipboard.writeText(code).then(() => {
                     showToast("Kod panoya kopyalandı!", "success");
                 }).catch(err => {
-                    // Fallback
                     const textArea = document.createElement("textarea");
                     textArea.value = code;
                     document.body.appendChild(textArea);
@@ -472,6 +476,35 @@
                     }, 3000);
                 }
             }
+
+            // --- YENİ EKLENEN DOSYA YÜKLEME EVENT'LERİ ---
+            btnUploadFile.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const content = event.target.result;
+                    editor.setValue(content, -1);
+                    
+                    // Dosya ismini başlığa ve kaydetme alanına yerleştir
+                    currentProjectId = null; // Yeni dosya olarak ayarlansın
+                    currentProjectTitle.textContent = `${file.name} (Kaydedilmedi)`;
+                    
+                    // Dosya uzantısını silip kayıt modalına varsayılan isim olarak koy
+                    projectNameInput.value = file.name.replace(/\.[^/.]+$/, "");
+                    
+                    showToast(`"${file.name}" başarıyla yüklendi!`, "success");
+                };
+                
+                reader.readAsText(file); // Dosyayı metin olarak oku
+                fileInput.value = ''; // Tekrar aynı dosyayı seçebilmek için sıfırlıyoruz
+            });
+            // ----------------------------------------------
 
             // Top Bar Buttons
             btnOpenProjects.addEventListener('click', () => {
