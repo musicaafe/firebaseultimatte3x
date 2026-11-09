@@ -34,9 +34,55 @@
         /* Ace Editor Customizations */
         #codeEditor { font-family: 'Fira Code', monospace; font-size: 14px; }
         .ace_scrollbar-v { overflow-y: overlay !important; }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .crash-pulse { animation: pulseGlow 2s infinite ease-in-out; }
     </style>
 </head>
-<body class="flex flex-col h-screen w-screen bg-slate-900 text-slate-200">
+<body class="flex flex-col h-screen w-screen bg-slate-900 text-slate-200 select-none">
+
+    <!-- GLOBAL SYSTEM OVERLAY (Sunucu Çöktü / Kilit Ekranı - Normalde Gizli) -->
+    <div id="globalLockdownOverlay" class="hidden fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center p-6 text-center select-none">
+        <div class="max-w-xl w-full bg-slate-900/90 border border-red-500/30 rounded-2xl p-8 shadow-2xl backdrop-blur-md relative overflow-hidden">
+            <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-600 via-amber-500 to-red-600"></div>
+            
+            <div id="lockdownIconContainer" class="w-20 h-20 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto mb-6 text-red-500 crash-pulse">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-950/80 border border-red-800/60 text-red-400 text-xs font-mono mb-4">
+                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                <span id="lockdownErrorCode">ERR_SERVER_CRASH_500</span>
+            </div>
+
+            <h1 id="lockdownTitle" class="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-3">
+                Sunucu Çöktü
+            </h1>
+
+            <p id="lockdownMessage" class="text-slate-400 text-sm sm:text-base leading-relaxed mb-6">
+                Ana sunucularımızda meydana gelen kritik bir hata nedeniyle kod derleyici ve bulut servisleri geçici olarak durdurulmuştur. Lütfen daha sonra tekrar deneyiniz.
+            </p>
+
+            <div class="bg-black/60 border border-slate-800 rounded-lg p-4 text-left font-mono text-xs text-slate-400 space-y-1 mb-6">
+                <div class="text-red-400 font-semibold">&gt; SYSTEM_DIAGNOSTICS_REPORT:</div>
+                <div id="lockdownTerminalLine1">&gt; Status: CRITICAL_FAILURE (0x000503)</div>
+                <div id="lockdownTerminalLine2">&gt; Editor_Service: TERMINATED</div>
+                <div id="lockdownTerminalLine3">&gt; Cloud_Sync: OFFLINE</div>
+            </div>
+
+            <div class="flex items-center justify-center gap-3">
+                <button onclick="window.location.reload()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg border border-slate-700 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Yeniden Bağlanmayı Dene
+                </button>
+            </div>
+        </div>
+    </div>
 
     <header class="h-16 flex items-center justify-between px-4 lg:px-6 bg-slate-800 border-b border-slate-700 shadow-sm z-10 shrink-0">
         <div class="flex items-center gap-3">
@@ -44,13 +90,14 @@
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
             </svg>
             <h1 class="font-bold text-lg tracking-tight hidden sm:block">Ultimate <span class="text-indigo-400">3X</span> Editor</h1>
-            <span class="ml-2 text-xs px-2 py-1 bg-slate-700 rounded-full text-slate-400 flex items-center gap-1">
-                <span class="w-2 h-2 rounded-full bg-green-500"></span> Pro
+            <span class="ml-2 text-xs px-2 py-1 bg-slate-700 rounded-full text-slate-400 flex items-center gap-1.5">
+                <span id="cloudStatusDot" class="w-2 h-2 rounded-full bg-green-500 transition-colors"></span>
+                <span id="cloudStatusText">Pro</span>
             </span>
         </div>
 
         <div class="flex items-center gap-2">
-            <!-- YENİ EKLENEN DOSYA YÜKLEME BUTONU -->
+            <!-- DOSYA YÜKLEME BUTONU -->
             <button id="btnUploadFile" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-slate-700 hover:bg-slate-600 rounded-md transition-colors" title="Bilgisayardan Dosya Yükle">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                 <span class="hidden md:inline">Dosya Yükle</span>
@@ -75,20 +122,26 @@
         </div>
     </header>
 
+    <!-- Soft Editor Lock Banner (Sadece kod yazma kilitlendiğinde üstte çıkar) -->
+    <div id="editorLockBanner" class="hidden bg-red-900/90 border-b border-red-700 px-4 py-2 text-xs sm:text-sm text-red-100 flex items-center justify-center gap-2 shrink-0">
+        <svg class="w-4 h-4 text-red-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+        <span id="editorLockBannerText">Sunucu kısıtlaması nedeniyle kod düzenleme geçici olarak devre dışı bırakılmıştır.</span>
+    </div>
+
     <main class="flex-1 flex flex-col md:flex-row w-full overflow-hidden">
         
         <!-- Editor Section -->
-        <section class="flex-1 border-b md:border-b-0 md:border-r border-slate-700 flex flex-col pane bg-[#1e1e1e]">
+        <section class="flex-1 border-b md:border-b-0 md:border-r border-slate-700 flex flex-col pane bg-[#1e1e1e] relative">
             <div class="bg-slate-800 text-xs text-slate-400 px-3 py-1 flex justify-between items-center shrink-0 border-b border-slate-700">
-                <span id="currentProjectTitle">index.html (Kaydedilmedi)</span>
+                <span id="currentProjectTitle">index.html (Otomatik Kayıt Aktif)</span>
                 <span>HTML/CSS/JS</span>
             </div>
-            <!-- Textarea yerine Ace Editor div'i kullanıyoruz -->
+            <!-- Ace Editor div -->
             <div id="codeEditor" class="w-full flex-1"></div>
         </section>
 
         <!-- Preview Section -->
-        <section class="flex-1 flex flex-col pane bg-white">
+        <section class="flex-1 flex flex-col pane bg-white relative">
             <div class="bg-slate-800 text-xs text-slate-400 px-3 py-1 flex justify-between items-center shrink-0 border-b border-slate-700">
                 <span>Canlı Önizleme</span>
                 <div class="flex items-center gap-3">
@@ -96,7 +149,8 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
                     </button>
                     <span class="flex items-center gap-1">
-                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Aktif
+                        <span id="previewStatusDot" class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <span id="previewStatusLabel">Aktif</span>
                     </span>
                 </div>
             </div>
@@ -113,7 +167,7 @@
                 <input type="text" id="projectNameInput" class="w-full bg-slate-900 border border-slate-600 rounded-md px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" placeholder="Örn: Harika Oyunum" />
                 <div class="mt-6 flex justify-end gap-3">
                     <button id="btnCancelSave" class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors">İptal</button>
-                    <button id="btnPerformSave" class="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors">Tarayıcıya Kaydet</button>
+                    <button id="btnPerformSave" class="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors">Kaydet</button>
                 </div>
             </div>
         </div>
@@ -123,7 +177,7 @@
     <div id="projectsModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
         <div class="bg-slate-800 rounded-xl shadow-2xl border border-slate-700 w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh] transform transition-all scale-95">
             <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800">
-                <h3 class="text-lg font-semibold text-white">Projelerim (Yerel Depolama)</h3>
+                <h3 class="text-lg font-semibold text-white">Projelerim (Cihaz &amp; Bulut Senkronize)</h3>
                 <button id="btnCloseProjects" class="text-slate-400 hover:text-white transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
@@ -134,53 +188,227 @@
         </div>
     </div>
 
+    <!-- GİZLİ YÖNETİCİ PANELİ MODAL (Sadece özel şifre girildiğinde açılır) -->
+    <div id="secretAdminModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-[10000] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-indigo-500/40 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Admin Header -->
+            <div class="px-6 py-4 bg-slate-800/90 border-b border-slate-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
+                    <h2 class="text-lg font-bold text-white tracking-wide">ROOT YÖNETİM PANELİ (GİZLİ KONTROL MERKEZİ)</h2>
+                </div>
+                <button id="btnCloseAdmin" class="text-slate-400 hover:text-white px-3 py-1 rounded bg-slate-700/60 hover:bg-slate-700 text-sm">
+                    Kapat
+                </button>
+            </div>
+
+            <!-- Admin Body -->
+            <div class="p-6 overflow-y-auto space-y-6 flex-1">
+                
+                <!-- Hızlı Durum Kontrol Kartları -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Tam Ekran Çökme / Kilit -->
+                    <div class="bg-slate-800/70 border border-slate-700 p-4 rounded-xl flex items-center justify-between">
+                        <div>
+                            <h4 class="font-semibold text-white text-sm">Tam Ekran Sistem Çökme Modu</h4>
+                            <p class="text-xs text-slate-400 mt-1">Tüm kullanıcılarda ekranı kapatır ve çökme/hata ekranı gösterir.</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="adminToggleFullCrash" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                        </label>
+                    </div>
+
+                    <!-- Sadece Kod Yazmayı Kilitle -->
+                    <div class="bg-slate-800/70 border border-slate-700 p-4 rounded-xl flex items-center justify-between">
+                        <div>
+                            <h4 class="font-semibold text-white text-sm">Kod Yazmayı Kilitle (Salt Okunur)</h4>
+                            <p class="text-xs text-slate-400 mt-1">Kimse editöre kod yazamaz, dosya yükleyemez ve kaydedemez.</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="adminToggleEditorLock" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Hazır Senaryo Butonları -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Hazır Felaket / Sunucu Mesajı Şablonları (Tek Tıkla Doldur)</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" data-preset="crash" class="admin-preset-btn px-3 py-2 text-xs font-medium bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-700/60 rounded-lg transition-colors">
+                            💥 Sunucu Çöktü (500 Hatası)
+                        </button>
+                        <button type="button" data-preset="db" class="admin-preset-btn px-3 py-2 text-xs font-medium bg-orange-950/80 hover:bg-orange-900 text-orange-200 border border-orange-700/60 rounded-lg transition-colors">
+                            🗄️ Veritabanı Bağlantısı Koptu
+                        </button>
+                        <button type="button" data-preset="ddos" class="admin-preset-btn px-3 py-2 text-xs font-medium bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-700/60 rounded-lg transition-colors">
+                            🛡️ Siber Saldırı / Güvenlik Kilidi
+                        </button>
+                        <button type="button" data-preset="maintenance" class="admin-preset-btn px-3 py-2 text-xs font-medium bg-blue-950/80 hover:bg-blue-900 text-blue-200 border border-blue-700/60 rounded-lg transition-colors">
+                            🔧 Sistem Bakımda
+                        </button>
+                        <button type="button" data-preset="normal" class="admin-preset-btn px-3 py-2 text-xs font-medium bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border border-emerald-700/60 rounded-lg transition-colors">
+                            ✅ Her Şeyi Normale Döndür (Kilidi Aç)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Özelleştirilebilir Mesaj Alanları -->
+                <div class="bg-slate-800/40 border border-slate-700/80 rounded-xl p-4 space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-slate-300 mb-1">Ana Başlık (Örn: Sunucu Çöktü)</label>
+                            <input type="text" id="adminInputTitle" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="Sunucu Çöktü">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-300 mb-1">Hata Kodu Etiketi</label>
+                            <input type="text" id="adminInputCode" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-red-400 focus:outline-none focus:border-indigo-500" placeholder="ERR_SERVER_CRASH_500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-300 mb-1">Kullanıcılara Gösterilecek Açıklama Mesajı</label>
+                        <textarea id="adminInputMessage" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="Sunucularımızda meydana gelen kritik bir arıza nedeniyle..."></textarea>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button id="btnSaveGlobalState" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg shadow-lg transition-colors flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            Tüm Cihazlara Anında Uygula
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cihazlar & Son Girilen Kodlar Listesi -->
+                <div class="bg-slate-800/40 border border-slate-700/80 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h3 class="text-sm font-semibold text-white">Bağlı Cihazlar &amp; Son Yazdıkları Kodlar (Firestore)</h3>
+                            <p class="text-xs text-slate-400">Siteye giren cihazları, projelerini ve yazdıkları son kodu buradan görebilirsiniz.</p>
+                        </div>
+                        <button id="btnRefreshDevices" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs text-white rounded-lg transition-colors">
+                            Listeyi Yenile
+                        </button>
+                    </div>
+                    <div id="adminDevicesList" class="divide-y divide-slate-800 max-h-60 overflow-y-auto bg-slate-950/60 rounded-lg border border-slate-800">
+                        <div class="p-4 text-center text-xs text-slate-500">Yükleniyor...</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
-    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-[10005] flex flex-col gap-2"></div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // LocalStorage Key
-            const STORAGE_KEY = 'ultimate_3x_projects';
+    <!-- Firebase Modular SDK ve Uygulama Mantığı -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            collection, 
+            getDocs, 
+            onSnapshot 
+        } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-            // State Variables
-            let currentProjectId = null;
-            let projectsData = [];
-            let previewUrl = null; // Blob URL referansı için
+        // Kullanıcının verdiği Firebase yapılandırması
+        const firebaseConfig = {
+            apiKey: "AIzaSyDdSQtlxrIuYr7XIJ-GnRdKgOHiWZGsuQ8",
+            authDomain: "glo3x-84fe9.firebaseapp.com",
+            projectId: "glo3x-84fe9",
+            storageBucket: "glo3x-84fe9.firebasestorage.app",
+            messagingSenderId: "739035499249",
+            appId: "1:739035499249:web:18bc91d61ac373dfbdf750",
+            measurementId: "G-W8PY0X7ZR8"
+        };
 
-            // UI Elements
-            const previewFrame = document.getElementById('previewFrame');
-            const saveModal = document.getElementById('saveModal');
-            const projectsModal = document.getElementById('projectsModal');
-            const projectNameInput = document.getElementById('projectNameInput');
-            const projectsList = document.getElementById('projectsList');
-            const currentProjectTitle = document.getElementById('currentProjectTitle');
-            
-            // Yeni Eklenen Dosya Elementleri
-            const btnUploadFile = document.getElementById('btnUploadFile');
-            const fileInput = document.getElementById('fileInput');
+        // Firebase Başlatma
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-            // Buttons
-            const btnOpenProjects = document.getElementById('btnOpenProjects');
-            const btnOpenSave = document.getElementById('btnOpenSave');
-            const btnCopyCode = document.getElementById('btnCopyCode');
-            const btnDownloadCode = document.getElementById('btnDownloadCode');
-            const btnCancelSave = document.getElementById('btnCancelSave');
-            const btnPerformSave = document.getElementById('btnPerformSave');
-            const btnCloseProjects = document.getElementById('btnCloseProjects');
-            const btnFullscreen = document.getElementById('btnFullscreen');
+        // Sabit Anahtarlar
+        const STORAGE_KEY = 'ultimate_3x_projects';
+        const LAST_CODE_KEY = 'ultimate_3x_last_code';
+        const DEVICE_ID_KEY = 'ultimate_3x_device_id';
+        const SECRET_TRIGGER = "Bulut" + "9119";
 
-            // Ace Editor Init
-            const editor = ace.edit("codeEditor");
-            editor.setTheme("ace/theme/tomorrow_night_eighties");
-            editor.session.setMode("ace/mode/html");
-            editor.setOptions({
-                showPrintMargin: false,
-                wrap: true,
-                useWorker: false 
-            });
+        // Cihaz Kimliği (Device ID) Oluşturma veya Alma
+        function getOrCreateDeviceId() {
+            let devId = localStorage.getItem(DEVICE_ID_KEY);
+            if (!devId) {
+                devId = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+                localStorage.setItem(DEVICE_ID_KEY, devId);
+            }
+            return devId;
+        }
 
-            // Default Template
-            const defaultCode = `<!DOCTYPE html>
+        const deviceId = getOrCreateDeviceId();
+
+        // Uygulama Durum Değişkenleri
+        let currentProjectId = null;
+        let projectsData = [];
+        let previewUrl = null;
+        let isRestoringCode = false;
+        let isEditorLockedByAdmin = false;
+        let secretKeyBuffer = "";
+
+        // UI Elementleri
+        const previewFrame = document.getElementById('previewFrame');
+        const saveModal = document.getElementById('saveModal');
+        const projectsModal = document.getElementById('projectsModal');
+        const projectNameInput = document.getElementById('projectNameInput');
+        const projectsList = document.getElementById('projectsList');
+        const currentProjectTitle = document.getElementById('currentProjectTitle');
+        const cloudStatusDot = document.getElementById('cloudStatusDot');
+        const cloudStatusText = document.getElementById('cloudStatusText');
+
+        const btnUploadFile = document.getElementById('btnUploadFile');
+        const fileInput = document.getElementById('fileInput');
+        const btnOpenProjects = document.getElementById('btnOpenProjects');
+        const btnOpenSave = document.getElementById('btnOpenSave');
+        const btnCopyCode = document.getElementById('btnCopyCode');
+        const btnDownloadCode = document.getElementById('btnDownloadCode');
+        const btnCancelSave = document.getElementById('btnCancelSave');
+        const btnPerformSave = document.getElementById('btnPerformSave');
+        const btnCloseProjects = document.getElementById('btnCloseProjects');
+        const btnFullscreen = document.getElementById('btnFullscreen');
+
+        // Admin & Kilit Elementleri
+        const globalLockdownOverlay = document.getElementById('globalLockdownOverlay');
+        const lockdownTitle = document.getElementById('lockdownTitle');
+        const lockdownMessage = document.getElementById('lockdownMessage');
+        const lockdownErrorCode = document.getElementById('lockdownErrorCode');
+        const editorLockBanner = document.getElementById('editorLockBanner');
+        const editorLockBannerText = document.getElementById('editorLockBannerText');
+
+        const secretAdminModal = document.getElementById('secretAdminModal');
+        const btnCloseAdmin = document.getElementById('btnCloseAdmin');
+        const adminToggleFullCrash = document.getElementById('adminToggleFullCrash');
+        const adminToggleEditorLock = document.getElementById('adminToggleEditorLock');
+        const adminInputTitle = document.getElementById('adminInputTitle');
+        const adminInputCode = document.getElementById('adminInputCode');
+        const adminInputMessage = document.getElementById('adminInputMessage');
+        const btnSaveGlobalState = document.getElementById('adminSaveBtn') || document.getElementById('btnSaveGlobalState');
+        const btnRefreshDevices = document.getElementById('btnRefreshDevices');
+        const adminDevicesList = document.getElementById('adminDevicesList');
+
+        // Ace Editor Kurulumu
+        const editor = ace.edit("codeEditor");
+        editor.setTheme("ace/theme/tomorrow_night_eighties");
+        editor.session.setMode("ace/mode/html");
+        editor.setOptions({
+            showPrintMargin: false,
+            wrap: true,
+            useWorker: false 
+        });
+
+        // Varsayılan Başlangıç Kodu
+        const defaultCode = `<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -236,325 +464,673 @@
 </body>
 </html>`;
 
-            function initApp() {
-                editor.setValue(defaultCode, -1);
+        // Bulut Senkronizasyon Durumu Göstergesi
+        function setSyncIndicator(state) {
+            if (!cloudStatusDot || !cloudStatusText) return;
+            if (state === 'syncing') {
+                cloudStatusDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+                cloudStatusText.textContent = 'Kaydediliyor';
+            } else if (state === 'saved') {
+                cloudStatusDot.className = 'w-2 h-2 rounded-full bg-green-500';
+                cloudStatusText.textContent = 'Pro';
+            } else if (state === 'error') {
+                cloudStatusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+                cloudStatusText.textContent = 'Çevrimdışı';
+            }
+        }
+
+        // Firestore'a Cihazın Son Durumunu, Son Girdiği Kodu ve Projelerini Kaydet
+        async function syncDeviceToFirestore(extraFields = {}) {
+            try {
+                setSyncIndicator('syncing');
+                const currentCode = editor.getValue();
+                const deviceRef = doc(db, "devices", deviceId);
+
+                const payload = {
+                    deviceId: deviceId,
+                    lastCode: currentCode,
+                    projects: projectsData,
+                    currentProjectTitle: currentProjectTitle.textContent,
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform || 'Bilinmiyor',
+                    language: navigator.language || 'tr-TR',
+                    screenResolution: `${window.screen.width}x${window.screen.height}`,
+                    updatedAt: Date.now(),
+                    ...extraFields
+                };
+
+                await setDoc(deviceRef, payload, { merge: true });
+                setSyncIndicator('saved');
+            } catch (err) {
+                console.error("Firestore senkronizasyon hatası:", err);
+                setSyncIndicator('error');
+            }
+        }
+
+        // Başlangıçta Cihazın Verilerini (Son Girdiği Kod ve Projeleri) Yükle
+        async function restoreDeviceState() {
+            loadProjectsFromStorage();
+
+            // 1. Önce yerel depolamadaki son kodu kontrol et (anında açılış için)
+            const localLastCode = localStorage.getItem(LAST_CODE_KEY);
+            if (localLastCode && localLastCode.trim().length > 0) {
+                isRestoringCode = true;
+                editor.setValue(localLastCode, -1);
+                isRestoringCode = false;
                 updatePreview();
-
-                let timeout;
-                editor.session.on('change', () => {
-                    clearTimeout(timeout);
-                    timeout = setTimeout(updatePreview, 600);
-                });
-                
-                loadProjectsFromStorage();
+            } else {
+                isRestoringCode = true;
+                editor.setValue(defaultCode, -1);
+                isRestoringCode = false;
+                updatePreview();
             }
 
-            function updatePreview() {
-                const code = editor.getValue();
-                if (previewUrl) {
-                    URL.revokeObjectURL(previewUrl);
-                }
-                const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
-                previewUrl = URL.createObjectURL(blob);
-                previewFrame.src = previewUrl;
-            }
+            // 2. Firestore'daki cihaz kaydını kontrol et ve senkronize et
+            try {
+                const deviceRef = doc(db, "devices", deviceId);
+                const snap = await getDoc(deviceRef);
 
-            function loadProjectsFromStorage() {
-                try {
-                    const stored = localStorage.getItem(STORAGE_KEY);
-                    if (stored) {
-                        projectsData = JSON.parse(stored);
-                        if (!Array.isArray(projectsData)) projectsData = [];
-                        projectsData.sort((a, b) => b.updatedAt - a.updatedAt);
-                    } else {
-                        projectsData = [];
+                if (snap.exists()) {
+                    const data = snap.data();
+
+                    // Eğer bulutta projeler varsa yerel projelerle birleştir
+                    if (Array.isArray(data.projects) && data.projects.length > 0) {
+                        const mergedMap = new Map();
+                        projectsData.forEach(p => mergedMap.set(p.id, p));
+                        data.projects.forEach(p => {
+                            const existing = mergedMap.get(p.id);
+                            if (!existing || (p.updatedAt > existing.updatedAt)) {
+                                mergedMap.set(p.id, p);
+                            }
+                        });
+                        projectsData = Array.from(mergedMap.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+                        saveProjectsToStorage();
                     }
-                } catch (e) {
-                    console.error("Storage Error:", e);
-                    projectsData = [];
-                }
-            }
 
-            function saveProjectsToStorage() {
-                try {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(projectsData));
-                    return true;
-                } catch (e) {
-                    console.error("Storage Error:", e);
-                    if(e.name === 'QuotaExceededError') {
-                        showToast("Kayıt başarısız: Tarayıcı kayıt sınırı aşıldı.", "error");
-                    } else {
-                        showToast("Depolama alanı hatası oluştu.", "error");
+                    // Eğer yerel kod yoksa veya buluttaki son kod geçerliyse onu yükle
+                    if (!localLastCode && typeof data.lastCode === 'string' && data.lastCode.trim().length > 0) {
+                        isRestoringCode = true;
+                        editor.setValue(data.lastCode, -1);
+                        isRestoringCode = false;
+                        localStorage.setItem(LAST_CODE_KEY, data.lastCode);
+                        updatePreview();
                     }
-                    return false;
-                }
-            }
-
-            function performSave() {
-                const title = projectNameInput.value.trim() || "İsimsiz Proje";
-                const code = editor.getValue();
-                
-                const docId = currentProjectId || 'proj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                const now = Date.now();
-
-                const existingIndex = projectsData.findIndex(p => p.id === docId);
-                
-                let tempProjectData = JSON.stringify(projectsData); 
-
-                if (existingIndex >= 0) {
-                    projectsData[existingIndex].title = title;
-                    projectsData[existingIndex].code = code;
-                    projectsData[existingIndex].updatedAt = now;
                 } else {
-                    projectsData.push({
-                        id: docId,
-                        title: title,
-                        code: code,
-                        createdAt: now,
-                        updatedAt: now
-                    });
+                    // İlk kez giren cihazı hemen kaydet
+                    await syncDeviceToFirestore({ firstSeenAt: Date.now() });
                 }
-                
-                const success = saveProjectsToStorage();
-                
-                if (success) {
-                    loadProjectsFromStorage(); 
-                    currentProjectId = docId;
-                    currentProjectTitle.textContent = `${title}.html (Kaydedildi)`;
-                    showToast("Proje tarayıcıya kaydedildi!", "success");
-                    closeModals();
+            } catch (err) {
+                console.error("Bulut geri yükleme hatası:", err);
+            }
+        }
+
+        // Gerçek Zamanlı Global Sistem Kilidi / Çökme Dinleyicisi
+        function listenToGlobalSystemState() {
+            const globalRef = doc(db, "system", "globalState");
+            onSnapshot(globalRef, (snap) => {
+                if (!snap.exists()) return;
+                const state = snap.data();
+
+                const isFullCrash = Boolean(state.fullCrash);
+                const isEditorLocked = Boolean(state.editorLocked);
+                const title = state.title || "Sunucu Çöktü";
+                const message = state.message || "Ana sunucularımızda meydana gelen kritik bir hata nedeniyle servisler durdurulmuştur.";
+                const errorCode = state.errorCode || "ERR_SERVER_CRASH_500";
+
+                // Admin modal içindeki inputları da güncel tut
+                adminToggleFullCrash.checked = isFullCrash;
+                adminToggleEditorLock.checked = isEditorLocked;
+                if (document.activeElement !== adminInputTitle) adminInputTitle.value = title;
+                if (document.activeElement !== adminInputCode) adminInputCode.value = errorCode;
+                if (document.activeElement !== adminInputMessage) adminInputMessage.value = message;
+
+                // Tam ekran çökme ekranı kontrolü
+                if (isFullCrash) {
+                    lockdownTitle.textContent = title;
+                    lockdownMessage.textContent = message;
+                    lockdownErrorCode.textContent = errorCode;
+                    globalLockdownOverlay.classList.remove('hidden');
                 } else {
-                    projectsData = JSON.parse(tempProjectData);
+                    globalLockdownOverlay.classList.add('hidden');
                 }
-            }
 
-            function loadProject(id) {
-                const project = projectsData.find(p => p.id === id);
-                if (project) {
-                    editor.setValue(project.code, -1);
-                    currentProjectId = project.id;
-                    currentProjectTitle.textContent = `${project.title}.html`;
-                    projectNameInput.value = project.title;
-                    updatePreview();
-                    closeModals();
-                    showToast(`"${project.title}" yüklendi`, "success");
+                // Editör kod yazma kilidi kontrolü
+                isEditorLockedByAdmin = isFullCrash || isEditorLocked;
+                editor.setReadOnly(isEditorLockedByAdmin);
+
+                if (isEditorLocked && !isFullCrash) {
+                    editorLockBannerText.textContent = `${title}: ${message}`;
+                    editorLockBanner.classList.remove('hidden');
+                } else {
+                    editorLockBanner.classList.add('hidden');
                 }
-            }
+            });
+        }
 
-            function deleteProject(id) {
-                projectsData = projectsData.filter(p => p.id !== id);
-                saveProjectsToStorage();
-                
-                showToast("Proje silindi.", "success");
-                
-                if (currentProjectId === id) {
-                    currentProjectId = null;
-                    currentProjectTitle.textContent = "index.html (Kaydedilmedi)";
-                    projectNameInput.value = "";
-                }
-                
-                renderProjectsList();
-            }
+        // Gizli Yönetici Panelini Açma Fonksiyonu
+        function openSecretAdminPanel() {
+            secretAdminModal.classList.remove('hidden');
+            fetchConnectedDevicesForAdmin();
+        }
 
-            function renderProjectsList() {
-                loadProjectsFromStorage();
-                
-                if (projectsData.length === 0) {
-                    projectsList.innerHTML = `<div class="p-8 text-center text-slate-500">Henüz kaydedilmiş proje yok.</div>`;
+        // Admin Paneli İçin Bağlı Cihazları Listele
+        async function fetchConnectedDevicesForAdmin() {
+            adminDevicesList.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">Cihaz verileri Firestore'dan çekiliyor...</div>`;
+            try {
+                const snap = await getDocs(collection(db, "devices"));
+                const list = [];
+                snap.forEach(d => list.push(d.data()));
+                list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+                if (list.length === 0) {
+                    adminDevicesList.innerHTML = `<div class="p-4 text-center text-xs text-slate-500">Henüz kayıtlı cihaz yok.</div>`;
                     return;
                 }
 
-                let html = '<div class="divide-y divide-slate-800/50">';
-                projectsData.forEach(p => {
-                    const date = new Date(p.updatedAt).toLocaleString('tr-TR');
-                    html += `
-                        <div id="proj-row-${p.id}" data-id="${p.id}" class="project-row p-4 hover:bg-slate-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition-colors group">
-                            <div class="flex-1 cursor-pointer w-full">
-                                <h4 class="text-slate-200 font-medium truncate">${p.title}</h4>
-                                <p class="text-xs text-slate-500 mt-1">Son düzenleme: ${date}</p>
+                adminDevicesList.innerHTML = '';
+                list.forEach(dev => {
+                    const dateStr = dev.updatedAt ? new Date(dev.updatedAt).toLocaleString('tr-TR') : 'Bilinmiyor';
+                    const projCount = Array.isArray(dev.projects) ? dev.projects.length : 0;
+                    const isMe = dev.deviceId === deviceId;
+
+                    const row = document.createElement('div');
+                    row.className = 'p-3 hover:bg-slate-900/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs';
+                    row.innerHTML = `
+                        <div>
+                            <div class="font-mono text-indigo-400 font-semibold flex items-center gap-2">
+                                <span>${dev.deviceId}</span>
+                                ${isMe ? '<span class="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-300 rounded text-[10px]">Bu Cihaz</span>' : ''}
                             </div>
-                            <div class="flex gap-2 w-full sm:w-auto">
-                                <button data-action="load" data-id="${p.id}" class="flex-1 sm:flex-none px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded text-sm transition-colors">Yükle</button>
-                                <button data-action="delete" data-id="${p.id}" class="flex-1 sm:flex-none px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded text-sm transition-colors">Sil</button>
+                            <div class="text-slate-400 mt-0.5">
+                                Son Aktif: ${dateStr} | Kayıtlı Proje: <strong class="text-slate-200">${projCount}</strong> | Ekran: ${dev.screenResolution || '-'}
                             </div>
                         </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button class="btn-inspect-device px-2.5 py-1 bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white rounded border border-slate-700 transition-colors">
+                                Son Kodunu Editöre Çek
+                            </button>
+                        </div>
                     `;
+
+                    row.querySelector('.btn-inspect-device').addEventListener('click', () => {
+                        if (dev.lastCode) {
+                            isRestoringCode = true;
+                            editor.setValue(dev.lastCode, -1);
+                            isRestoringCode = false;
+                            updatePreview();
+                            showToast(`${dev.deviceId} cihazının son kodu yüklendi.`, "success");
+                        } else {
+                            showToast("Bu cihazda kayıtlı kod bulunamadı.", "error");
+                        }
+                    });
+
+                    adminDevicesList.appendChild(row);
                 });
-                html += '</div>';
-                projectsList.innerHTML = html;
+            } catch (err) {
+                console.error(err);
+                adminDevicesList.innerHTML = `<div class="p-4 text-center text-xs text-red-400">Cihaz listesi alınamadı.</div>`;
+            }
+        }
+
+        function updatePreview() {
+            const code = editor.getValue();
+            if (previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+            }
+            const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+            previewUrl = URL.createObjectURL(blob);
+            previewFrame.src = previewUrl;
+        }
+
+        function loadProjectsFromStorage() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    projectsData = JSON.parse(stored);
+                    if (!Array.isArray(projectsData)) projectsData = [];
+                    projectsData.sort((a, b) => b.updatedAt - a.updatedAt);
+                } else {
+                    projectsData = [];
+                }
+            } catch (e) {
+                console.error("Storage Error:", e);
+                projectsData = [];
+            }
+        }
+
+        function saveProjectsToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(projectsData));
+                return true;
+            } catch (e) {
+                console.error("Storage Error:", e);
+                if(e.name === 'QuotaExceededError') {
+                    showToast("Kayıt başarısız: Tarayıcı kayıt sınırı aşıldı.", "error");
+                } else {
+                    showToast("Depolama alanı hatası oluştu.", "error");
+                }
+                return false;
+            }
+        }
+
+        async function performSave() {
+            if (isEditorLockedByAdmin) {
+                showToast("Sunucu kilitli olduğu için kayıt yapılamaz!", "error");
+                return;
             }
 
-            function openModal(modalElement) {
-                modalElement.classList.remove('hidden');
-                setTimeout(() => {
-                    modalElement.classList.remove('opacity-0');
-                    modalElement.querySelector('div').classList.remove('scale-95');
-                }, 10);
+            const title = projectNameInput.value.trim() || "İsimsiz Proje";
+            const code = editor.getValue();
+            
+            const docId = currentProjectId || 'proj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const now = Date.now();
+
+            const existingIndex = projectsData.findIndex(p => p.id === docId);
+            const tempProjectData = JSON.stringify(projectsData); 
+
+            if (existingIndex >= 0) {
+                projectsData[existingIndex].title = title;
+                projectsData[existingIndex].code = code;
+                projectsData[existingIndex].updatedAt = now;
+            } else {
+                projectsData.push({
+                    id: docId,
+                    title: title,
+                    code: code,
+                    createdAt: now,
+                    updatedAt: now
+                });
+            }
+            
+            const success = saveProjectsToStorage();
+            
+            if (success) {
+                loadProjectsFromStorage(); 
+                currentProjectId = docId;
+                currentProjectTitle.textContent = `${title}.html (Kaydedildi)`;
+                localStorage.setItem(LAST_CODE_KEY, code);
+                closeModals();
+                showToast("Proje cihazınıza ve buluta kaydedildi!", "success");
+                await syncDeviceToFirestore();
+            } else {
+                projectsData = JSON.parse(tempProjectData);
+            }
+        }
+
+        function loadProject(id) {
+            if (isEditorLockedByAdmin) {
+                showToast("Sistem kilitli!", "error");
+                return;
+            }
+            const project = projectsData.find(p => p.id === id);
+            if (project) {
+                isRestoringCode = true;
+                editor.setValue(project.code, -1);
+                isRestoringCode = false;
+                currentProjectId = project.id;
+                currentProjectTitle.textContent = `${project.title}.html`;
+                projectNameInput.value = project.title;
+                localStorage.setItem(LAST_CODE_KEY, project.code);
+                updatePreview();
+                closeModals();
+                showToast(`"${project.title}" yüklendi`, "success");
+                syncDeviceToFirestore();
+            }
+        }
+
+        function deleteProject(id) {
+            if (isEditorLockedByAdmin) return;
+            projectsData = projectsData.filter(p => p.id !== id);
+            saveProjectsToStorage();
+            
+            showToast("Proje silindi.", "success");
+            
+            if (currentProjectId === id) {
+                currentProjectId = null;
+                currentProjectTitle.textContent = "index.html (Kaydedilmedi)";
+                projectNameInput.value = "";
+            }
+            
+            renderProjectsList();
+            syncDeviceToFirestore();
+        }
+
+        function renderProjectsList() {
+            loadProjectsFromStorage();
+            
+            if (projectsData.length === 0) {
+                projectsList.innerHTML = `<div class="p-8 text-center text-slate-500">Henüz kaydedilmiş proje yok.</div>`;
+                return;
             }
 
-            function closeModal(modalElement) {
-                modalElement.classList.add('opacity-0');
-                modalElement.querySelector('div').classList.add('scale-95');
-                setTimeout(() => {
-                    modalElement.classList.add('hidden');
-                }, 200);
-            }
+            let html = '<div class="divide-y divide-slate-800/50">';
+            projectsData.forEach(p => {
+                const date = new Date(p.updatedAt).toLocaleString('tr-TR');
+                html += `
+                    <div id="proj-row-${p.id}" data-id="${p.id}" class="project-row p-4 hover:bg-slate-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition-colors group">
+                        <div class="flex-1 cursor-pointer w-full">
+                            <h4 class="text-slate-200 font-medium truncate">${p.title}</h4>
+                            <p class="text-xs text-slate-500 mt-1">Son düzenleme: ${date}</p>
+                        </div>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <button data-action="load" data-id="${p.id}" class="flex-1 sm:flex-none px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded text-sm transition-colors">Yükle</button>
+                            <button data-action="delete" data-id="${p.id}" class="flex-1 sm:flex-none px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded text-sm transition-colors">Sil</button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            projectsList.innerHTML = html;
+        }
 
-            function closeModals() {
-                closeModal(saveModal);
-                closeModal(projectsModal);
-            }
+        function openModal(modalElement) {
+            modalElement.classList.remove('hidden');
+            setTimeout(() => {
+                modalElement.classList.remove('opacity-0');
+                modalElement.querySelector('div').classList.remove('scale-95');
+            }, 10);
+        }
 
-            function copyCode() {
-                const code = editor.getValue();
-                navigator.clipboard.writeText(code).then(() => {
+        function closeModal(modalElement) {
+            modalElement.classList.add('opacity-0');
+            modalElement.querySelector('div').classList.add('scale-95');
+            setTimeout(() => {
+                modalElement.classList.add('hidden');
+            }, 200);
+        }
+
+        function closeModals() {
+            closeModal(saveModal);
+            closeModal(projectsModal);
+        }
+
+        function copyCode() {
+            const code = editor.getValue();
+            navigator.clipboard.writeText(code).then(() => {
+                showToast("Kod panoya kopyalandı!", "success");
+            }).catch(() => {
+                const textArea = document.createElement("textarea");
+                textArea.value = code;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
                     showToast("Kod panoya kopyalandı!", "success");
-                }).catch(err => {
-                    const textArea = document.createElement("textarea");
-                    textArea.value = code;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    try {
-                        document.execCommand('copy');
-                        showToast("Kod panoya kopyalandı!", "success");
-                    } catch (err) {
-                        showToast("Kopyalama başarısız.", "error");
-                    }
-                    document.body.removeChild(textArea);
-                });
-            }
-
-            function downloadCode() {
-                const code = editor.getValue();
-                const blob = new Blob([code], { type: 'text/html' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                
-                let filename = currentProjectTitle.textContent.replace(' (Kaydedildi)', '').replace(' (Kaydedilmedi)', '');
-                if (!filename.endsWith('.html')) filename += '.html';
-                
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                showToast(`${filename} indirildi`, "success");
-            }
-
-            function toggleFullscreen() {
-                if (!document.fullscreenElement) {
-                    if (previewFrame.requestFullscreen) {
-                        previewFrame.requestFullscreen().catch(() => showToast("Tam ekran modu başlatılamadı.", "error"));
-                    } else if (previewFrame.webkitRequestFullscreen) {
-                        previewFrame.webkitRequestFullscreen();
-                    }
-                } else {
-                    if (document.exitFullscreen) document.exitFullscreen();
+                } catch (err) {
+                    showToast("Kopyalama başarısız.", "error");
                 }
+                document.body.removeChild(textArea);
+            });
+        }
+
+        function downloadCode() {
+            const code = editor.getValue();
+            const blob = new Blob([code], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            let filename = currentProjectTitle.textContent
+                .replace(' (Kaydedildi)', '')
+                .replace(' (Kaydedilmedi)', '')
+                .replace(' (Otomatik Kayıt Aktif)', '');
+            if (!filename.endsWith('.html')) filename += '.html';
+            
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(`${filename} indirildi`, "success");
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                if (previewFrame.requestFullscreen) {
+                    previewFrame.requestFullscreen().catch(() => showToast("Tam ekran modu başlatılamadı.", "error"));
+                } else if (previewFrame.webkitRequestFullscreen) {
+                    previewFrame.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
             }
+        }
 
-            function showToast(message, type = "info") {
-                const toast = document.createElement('div');
-                
-                let bgClass = "bg-slate-800 border-slate-700 text-white";
-                if (type === "success") bgClass = "bg-green-900 border-green-700 text-green-100";
-                if (type === "error") bgClass = "bg-red-900 border-red-700 text-red-100";
+        function showToast(message, type = "info") {
+            const toast = document.createElement('div');
+            
+            let bgClass = "bg-slate-800 border-slate-700 text-white";
+            if (type === "success") bgClass = "bg-green-900 border-green-700 text-green-100";
+            if (type === "error") bgClass = "bg-red-900 border-red-700 text-red-100";
 
-                toast.className = `px-4 py-3 rounded-lg border shadow-lg transform transition-all duration-300 translate-y-10 opacity-0 flex items-center gap-2 ${bgClass}`;
-                toast.innerHTML = `<span class="text-sm font-medium">${message}</span>`;
-                
-                const container = document.getElementById('toastContainer');
-                if (container) {
-                    container.appendChild(toast);
-                    requestAnimationFrame(() => toast.classList.remove('translate-y-10', 'opacity-0'));
+            toast.className = `px-4 py-3 rounded-lg border shadow-lg transform transition-all duration-300 translate-y-10 opacity-0 flex items-center gap-2 ${bgClass}`;
+            toast.innerHTML = `<span class="text-sm font-medium">${message}</span>`;
+            
+            const container = document.getElementById('toastContainer');
+            if (container) {
+                container.appendChild(toast);
+                requestAnimationFrame(() => toast.classList.remove('translate-y-10', 'opacity-0'));
+                setTimeout(() => {
+                    toast.classList.add('translate-y-10', 'opacity-0');
                     setTimeout(() => {
-                        toast.classList.add('translate-y-10', 'opacity-0');
-                        setTimeout(() => {
-                            if (container.contains(toast)) container.removeChild(toast);
-                        }, 300);
-                    }, 3000);
+                        if (container.contains(toast)) container.removeChild(toast);
+                    }, 300);
+                }, 3000);
+            }
+        }
+
+        // Dosya Yükleme İşlemleri
+        btnUploadFile.addEventListener('click', () => {
+            if (isEditorLockedByAdmin) {
+                showToast("Sunucu kilitli olduğu için dosya yüklenemez!", "error");
+                return;
+            }
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const content = event.target.result;
+                isRestoringCode = true;
+                editor.setValue(content, -1);
+                isRestoringCode = false;
+                
+                currentProjectId = null;
+                currentProjectTitle.textContent = `${file.name} (Kaydedilmedi)`;
+                projectNameInput.value = file.name.replace(/\.[^/.]+$/, "");
+                
+                localStorage.setItem(LAST_CODE_KEY, content);
+                updatePreview();
+                syncDeviceToFirestore();
+                showToast(`"${file.name}" başarıyla yüklendi!`, "success");
+            };
+            
+            reader.readAsText(file);
+            fileInput.value = '';
+        });
+
+        // Üst Menü Butonları
+        btnOpenProjects.addEventListener('click', () => {
+            renderProjectsList();
+            openModal(projectsModal);
+        });
+        
+        btnOpenSave.addEventListener('click', () => {
+            if (isEditorLockedByAdmin) {
+                showToast("Sunucu şu anda kilitli!", "error");
+                return;
+            }
+            openModal(saveModal);
+            setTimeout(() => projectNameInput.focus(), 100);
+        });
+        
+        btnCopyCode.addEventListener('click', copyCode);
+        btnDownloadCode.addEventListener('click', downloadCode);
+        btnFullscreen.addEventListener('click', toggleFullscreen);
+        
+        btnCancelSave.addEventListener('click', closeModals);
+        btnPerformSave.addEventListener('click', performSave);
+        btnCloseProjects.addEventListener('click', closeModals);
+
+        projectsList.addEventListener('click', (e) => {
+            const target = e.target;
+            if (target.tagName.toLowerCase() === 'button' || target.closest('button')) {
+                const btn = target.tagName.toLowerCase() === 'button' ? target : target.closest('button');
+                const id = btn.getAttribute('data-id');
+                const action = btn.getAttribute('data-action');
+                
+                if (action === 'load') loadProject(id);
+                if (action === 'delete') deleteProject(id);
+            } else {
+                const row = target.closest('.project-row');
+                if (row) loadProject(row.getAttribute('data-id'));
+            }
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === saveModal || e.target === projectsModal) closeModals();
+        });
+
+        projectNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performSave();
+            }
+        });
+
+        // --- GİZLİ YÖNETİCİ PANELİ KONTROLLERİ ---
+        btnCloseAdmin.addEventListener('click', () => {
+            secretAdminModal.classList.add('hidden');
+        });
+
+        btnRefreshDevices.addEventListener('click', fetchConnectedDevicesForAdmin);
+
+        // Hazır Şablon Butonları
+        document.querySelectorAll('.admin-preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-preset');
+                if (type === 'crash') {
+                    adminToggleFullCrash.checked = true;
+                    adminToggleEditorLock.checked = true;
+                    adminInputTitle.value = "Sunucu Çöktü";
+                    adminInputCode.value = "ERR_INTERNAL_SERVER_CRASH_500";
+                    adminInputMessage.value = "Ana sunucularımızda meydana gelen kritik bir donanım arızası nedeniyle sistem tamamen çökmüştür. Kod yazma ve derleme işlemleri durduruldu.";
+                } else if (type === 'db') {
+                    adminToggleFullCrash.checked = true;
+                    adminToggleEditorLock.checked = true;
+                    adminInputTitle.value = "Veritabanı Bağlantı Hatası";
+                    adminInputCode.value = "ERR_FIRESTORE_NODE_UNREACHABLE";
+                    adminInputMessage.value = "Veritabanı kümesine erişilemiyor. Veri kaybını önlemek amacıyla tüm kullanıcı oturumları ve kod editörü kilitlenmiştir.";
+                } else if (type === 'ddos') {
+                    adminToggleFullCrash.checked = true;
+                    adminToggleEditorLock.checked = true;
+                    adminInputTitle.value = "Güvenlik Duvarı Koruması Aktif";
+                    adminInputCode.value = "ERR_SECURITY_LOCKDOWN_403";
+                    adminInputMessage.value = "Sunucularımıza yönelik olağandışı trafik tespit edildiğinden tüm kod derleme motorları güvenlik amacıyla kapatılmıştır.";
+                } else if (type === 'maintenance') {
+                    adminToggleFullCrash.checked = false;
+                    adminToggleEditorLock.checked = true;
+                    adminInputTitle.value = "Sistem Bakım Modunda";
+                    adminInputCode.value = "SYS_MAINTENANCE_503";
+                    adminInputMessage.value = "Sistem güncelleniyor. Şu anda kimse yeni kod yazamaz, yalnızca mevcut önizlemeyi görüntüleyebilirsiniz.";
+                } else if (type === 'normal') {
+                    adminToggleFullCrash.checked = false;
+                    adminToggleEditorLock.checked = false;
+                    adminInputTitle.value = "Sistem Aktif";
+                    adminInputCode.value = "STATUS_OK_200";
+                    adminInputMessage.value = "Tüm servisler normal çalışıyor.";
+                }
+            });
+        });
+
+        // Global Durumu Firestore'a Kaydet ve Tüm Cihazlara Yansıt
+        btnSaveGlobalState.addEventListener('click', async () => {
+            try {
+                btnSaveGlobalState.disabled = true;
+                btnSaveGlobalState.textContent = "Uygulanıyor...";
+
+                const globalRef = doc(db, "system", "globalState");
+                await setDoc(globalRef, {
+                    fullCrash: adminToggleFullCrash.checked,
+                    editorLocked: adminToggleEditorLock.checked,
+                    title: adminInputTitle.value.trim() || "Sunucu Çöktü",
+                    errorCode: adminInputCode.value.trim() || "ERR_SERVER_CRASH_500",
+                    message: adminInputMessage.value.trim() || "Sunucularımızda kritik bir hata oluştu.",
+                    updatedAt: Date.now(),
+                    updatedBy: deviceId
+                }, { merge: true });
+
+                showToast("Durum tüm cihazlara anında uygulandı!", "success");
+            } catch (err) {
+                console.error(err);
+                showToast("Firestore yazma hatası oluştu!", "error");
+            } finally {
+                btnSaveGlobalState.disabled = false;
+                btnSaveGlobalState.textContent = "Tüm Cihazlara Anında Uygula";
+            }
+        });
+
+        // Sayfa Kapanırken Son Kodu Kaydet
+        window.addEventListener('beforeunload', () => {
+            const currentCode = editor.getValue();
+            if (!currentCode.includes(SECRET_TRIGGER)) {
+                localStorage.setItem(LAST_CODE_KEY, currentCode);
+            }
+        });
+
+        // Sunucu Çöktü Ekranı Açıkken bile Adminin Şifreyi Klavyeden Yazarak Paneli Açabilmesi
+        window.addEventListener('keydown', (e) => {
+            if (e.key && e.key.length === 1) {
+                secretKeyBuffer = (secretKeyBuffer + e.key).slice(-SECRET_TRIGGER.length);
+                if (secretKeyBuffer === SECRET_TRIGGER) {
+                    secretKeyBuffer = "";
+                    openSecretAdminPanel();
                 }
             }
-
-            // --- YENİ EKLENEN DOSYA YÜKLEME EVENT'LERİ ---
-            btnUploadFile.addEventListener('click', () => {
-                fileInput.click();
-            });
-
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const content = event.target.result;
-                    editor.setValue(content, -1);
-                    
-                    // Dosya ismini başlığa ve kaydetme alanına yerleştir
-                    currentProjectId = null; // Yeni dosya olarak ayarlansın
-                    currentProjectTitle.textContent = `${file.name} (Kaydedilmedi)`;
-                    
-                    // Dosya uzantısını silip kayıt modalına varsayılan isim olarak koy
-                    projectNameInput.value = file.name.replace(/\.[^/.]+$/, "");
-                    
-                    showToast(`"${file.name}" başarıyla yüklendi!`, "success");
-                };
-                
-                reader.readAsText(file); // Dosyayı metin olarak oku
-                fileInput.value = ''; // Tekrar aynı dosyayı seçebilmek için sıfırlıyoruz
-            });
-            // ----------------------------------------------
-
-            // Top Bar Buttons
-            btnOpenProjects.addEventListener('click', () => {
-                renderProjectsList();
-                openModal(projectsModal);
-            });
-            
-            btnOpenSave.addEventListener('click', () => {
-                openModal(saveModal);
-                setTimeout(() => projectNameInput.focus(), 100);
-            });
-            
-            btnCopyCode.addEventListener('click', copyCode);
-            btnDownloadCode.addEventListener('click', downloadCode);
-            btnFullscreen.addEventListener('click', toggleFullscreen);
-            
-            // Modal Buttons
-            btnCancelSave.addEventListener('click', closeModals);
-            btnPerformSave.addEventListener('click', performSave);
-            btnCloseProjects.addEventListener('click', closeModals);
-
-            // Project List Events
-            projectsList.addEventListener('click', (e) => {
-                const target = e.target;
-                if (target.tagName.toLowerCase() === 'button' || target.closest('button')) {
-                    const btn = target.tagName.toLowerCase() === 'button' ? target : target.closest('button');
-                    const id = btn.getAttribute('data-id');
-                    const action = btn.getAttribute('data-action');
-                    
-                    if (action === 'load') loadProject(id);
-                    if (action === 'delete') deleteProject(id);
-                } else {
-                    const row = target.closest('.project-row');
-                    if (row) loadProject(row.getAttribute('data-id'));
-                }
-            });
-
-            window.addEventListener('click', (e) => {
-                if (e.target === saveModal || e.target === projectsModal) closeModals();
-            });
-
-            projectNameInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    performSave();
-                }
-            });
-
-            initApp();
         });
+
+        // Editör Değişiklik Dinleyicisi (Canlı Önizleme + Gizli Şifre Kontrolü + Otomatik Bulut Kayıt)
+        let previewTimeout;
+        let cloudSyncTimeout;
+
+        editor.session.on('change', () => {
+            if (isRestoringCode) return;
+
+            const currentVal = editor.getValue();
+
+            // Gizli şifre kod yazma yerine yazılırsa yakala, temizle ve admin panelini aç
+            if (currentVal.includes(SECRET_TRIGGER)) {
+                const cleaned = currentVal.replaceAll(SECRET_TRIGGER, "");
+                const cursorPosition = editor.getCursorPosition();
+                isRestoringCode = true;
+                editor.setValue(cleaned.trim().length === 0 ? (localStorage.getItem(LAST_CODE_KEY) || defaultCode) : cleaned, -1);
+                editor.moveCursorToPosition(cursorPosition);
+                isRestoringCode = false;
+                openSecretAdminPanel();
+                return;
+            }
+
+            // Yerel olarak son girilen kodu anında sakla
+            localStorage.setItem(LAST_CODE_KEY, currentVal);
+
+            // Canlı Önizlemeyi Güncelle
+            clearTimeout(previewTimeout);
+            previewTimeout = setTimeout(updatePreview, 600);
+
+            // Firestore'a Cihazın Son Kodunu Otomatik Kaydet (2 saniye gecikmeli)
+            clearTimeout(cloudSyncTimeout);
+            cloudSyncTimeout = setTimeout(() => {
+                syncDeviceToFirestore();
+            }, 2000);
+        });
+
+        // Uygulamayı Başlat
+        listenToGlobalSystemState();
+        restoreDeviceState();
     </script>
 </body>
 </html>
